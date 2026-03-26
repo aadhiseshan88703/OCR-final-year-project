@@ -101,3 +101,28 @@ The script will:
   - `'en'` for English
   - `'ta'` for Tamil
   - `'hi'` for Hindi
+
+## GitHub Commit & Push Commands
+
+Use this section to track and push the current code to your GitHub repo:
+
+```bash
+# 1. Check repository status
+cd "c:\Users\ELCOT\Desktop\New project\ocr-invoice-system"
+git status
+
+# 2. Add changed files
+git add .
+
+# 3. Commit changes
+git commit -m "Fix OCR pipeline, enforce real OCR path, disable MKLDNN/oneDNN, update README"
+
+# 4. Push to GitHub remote
+git push origin main
+
+# Optional: check last commit
+git log --oneline -3
+```
+
+> Repo URL:
+> https://github.com/aadhiseshan88703/OCR-final-year-project.git

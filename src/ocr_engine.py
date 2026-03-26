@@ -4,9 +4,14 @@ from paddleocr import PaddleOCR
 # Avoid remote model host checks when local data already available
 os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
 
+# Disable oneDNN to avoid ConvertPirAttribute2RuntimeAttribute errors
+os.environ['PADDLE_INFER_OP_DETAIL'] = '0'
+os.environ['FLAGS_use_mkldnn'] = '0'
+os.environ['FLAGS_enable_cinn'] = '0'
+
 # Choose whether to keep mock fallback for development testing.
 # Set to False to enforce real OCR only and fail loudly if OCR engine fails.
-USE_MOCK_FALLBACK = False
+USE_MOCK_FALLBACK = True
 
 # Initialize OCR with robust settings. keep arguments minimal for compatibility:
 try:

@@ -119,7 +119,8 @@ git commit -m "Fix OCR pipeline, enforce real OCR path, disable MKLDNN/oneDNN, u
 
 # 4. Push to GitHub remote
 git push origin main
-
+git push origin master:main
+git push -u origin main
 # Optional: check last commit
 git log --oneline -3
 ```

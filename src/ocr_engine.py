@@ -8,12 +8,10 @@ os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
 # Set to False to enforce real OCR only and fail loudly if OCR engine fails.
 USE_MOCK_FALLBACK = False
 
-# Initialize OCR with robust CPU-only settings that avoid oneDNN conversion issues
+# Initialize OCR with robust settings. keep arguments minimal for compatibility:
 try:
     ocr = PaddleOCR(
         lang='en',
-        use_gpu=False,
-        enable_mkldnn=False,
         use_angle_cls=False
     )
     print("✅ PaddleOCR initialized successfully")

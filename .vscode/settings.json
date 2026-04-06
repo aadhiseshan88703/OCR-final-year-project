@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd \"c:\\\\Users\\\\ELCOT\\\\Desktop\\\\New project\\\\ocr-invoice-system\"; python main\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

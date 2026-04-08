@@ -370,12 +370,39 @@ def run_ocr(image, lang=None):
     """
     if lang is None:
         results = {}
-        
+        import numpy as np
+        from paddleocr.tools.infer.utility import get_rotate_crop_image
+
+        main_ocr = _get_model('latin')
+        base_image = _image_variant_for_lang(image, 'default')
+        det_res = main_ocr.ocr(base_image, cls=False, rec=False)
+        boxes = det_res[0] if det_res and det_res[0] else []
+
+        if not boxes:
+            return [], [], [], {'mode': 'merged_auto', 'language_counts': {}, 'languages_tried': list(AUTO_LANGUAGES)}
+
         def process_candidate(candidate):
             try:
-                ocr = _get_model(candidate)
                 candidate_image = _image_variant_for_lang(image, candidate)
-                return candidate, _flatten_result(ocr.ocr(candidate_image, cls=False))
+                img_crops = []
+                for box in boxes:
+                    img_crop = get_rotate_crop_image(candidate_image, np.array(box, dtype=np.float32))
+                    img_crops.append(img_crop)
+
+                ocr = _get_model(candidate)
+                rec_res = ocr.ocr(img_crops, det=False, cls=False)
+
+                texts = []
+                confidences = []
+                if rec_res and rec_res[0]:
+                    for item in rec_res[0]:
+                        texts.append(item[0] if isinstance(item, (list, tuple)) else "")
+                        confidences.append(float(item[1]) if isinstance(item, (list, tuple)) else 0.0)
+                else:
+                    texts = ["" for _ in boxes]
+                    confidences = [0.0 for _ in boxes]
+                    
+                return candidate, (texts, list(boxes), confidences)
             except Exception:
                 return candidate, None
 

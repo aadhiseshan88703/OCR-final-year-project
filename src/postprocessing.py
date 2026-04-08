@@ -329,9 +329,7 @@ def postprocess(texts, boxes, confidences, ocr_metadata=None):
     cleaned_boxes = [b for _, b, _ in entries]
     cleaned_confidences = [c for _, _, c in entries]
     selected_lang = (ocr_metadata or {}).get("selected_language")
-    cleaned_texts, cleaned_boxes, cleaned_confidences = _cleanup_script_specific_entries(
-        cleaned_texts, cleaned_boxes, cleaned_confidences, selected_lang
-    )
+    # Disabled script cleanup to preserve exact text as it appears in the image, mixed languages included
 
     invoice_fields = _extract_invoice_fields(cleaned_texts, cleaned_boxes)
     grouped, summary, layout, line_layout = _group_by_language(cleaned_texts, cleaned_boxes, cleaned_confidences)

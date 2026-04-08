@@ -37,17 +37,20 @@ if __name__ == "__main__":
     if lang:
         print(f"Forcing OCR language: {lang}")
 
+    all_results = {}
     for image_path in image_paths:
         print(f"Processing image: {image_path}")
         try:
             result = process_document(image_path, lang=lang)
             print(f"Pipeline result: {len(result['text'])} texts found")
-
+            
             base_name = os.path.splitext(os.path.basename(image_path))[0]
-            output_path = os.path.join("output", f"{base_name}.json")
-            saved_path = save_json(result, path=output_path)
-            print(f"Results saved to {saved_path}")
+            all_results[base_name] = result
         except Exception as e:
             print(f"Pipeline failed for {image_path}: {e}")
+
+    output_path = os.path.join("output", "result.json")
+    saved_path = save_json(all_results, path=output_path)
+    print(f"All results saved to {saved_path}")
 
     print("OCR processing completed successfully")

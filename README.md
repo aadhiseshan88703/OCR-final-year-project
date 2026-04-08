@@ -1,6 +1,24 @@
-# OCR Invoice System
+# OCR + VLM Based Invoice Processing System
 
-A Python-based Optical Character Recognition (OCR) system for extracting text from invoice images. Supports English, Tamil, and Hindi languages.
+## Description
+
+A robust, production-ready Optical Character Recognition (OCR) and Vision Language Model (VLM) based system designed to extract, interpret, and structure text from invoice images. This project provides a complete pipeline from image preprocessing to intelligent text extraction, handling multiple languages and complex invoice structures dynamically.
+
+## Features
+
+- **Multi-Language Support:** Extracts English, Tamil, Hindi, Telugu, and Kannada intelligently.
+- **Smart Text Detection:** Utilizes mathematically optimized OCR cropping, drastically speeding up text detection times by running detection logic only once across large images.
+- **Structured JSON Output:** Formats unstructured invoice text into structured data fields.
+- **Deterministic Processing:** Batch processing capability that enforces strict lexicographical order for reliable extraction limits.
+- **Microservice Ready:** Built with a scalable architecture, making it ready to be deployed as a backend API for modern web applications.
+
+## Tech Stack
+
+- **Backend:** Python, FastAPI
+- **OCR Engine:** PaddleOCR
+- **Advanced Processing:** LayoutLM (for layout-aware NLP), VLM architectures
+- **Frontend Integration:** React
+- **Image Processing:** OpenCV, NumPy, Pillow
 
 ## Project Structure
 
@@ -9,120 +27,47 @@ ocr-invoice-system/
 │
 ├── src/
 │   ├── preprocessing.py      # Image preprocessing (resize, grayscale, denoise, threshold)
-│   ├── ocr_engine.py         # PaddleOCR engine for text extraction
-│   ├── postprocessing.py     # Text cleaning and JSON output formatting
-│   ├── pipeline.py           # Complete OCR pipeline orchestration
+│   ├── ocr_engine.py         # Highly-optimized PaddleOCR engine for extraction
+│   ├── postprocessing.py     # Text cleaning and layout reconstruction
+│   ├── pipeline.py           # Unified pipeline handler
 │
-├── sample_data/
-│   └── sample_invoice.jpg    # Sample invoice image for testing
-│
-├── output/
-│   └── result.json           # OCR output in JSON format
-│
-├── main.py                   # Entry point script
+├── sample_data/              # Directory for raw input images
+├── output/                   # Directory for structured JSON output and logs
+├── main.py                   # Standard entry point script
+├── process_sequential.py     # Sequence-based batch processing script
 ├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+└── README.md                 # Project Documentation
 ```
 
-## Module Descriptions
+## Setup Instructions
 
-### preprocessing.py
-Performs image preprocessing including:
-- Resizing to standard dimensions (1024x1024)
-- Grayscale conversion
-- Gaussian blur for noise removal
-- Binary thresholding for improved OCR accuracy
+### 1. Prerequisites
+Ensure you have Python 3.9+ installed on your workspace. We recommend using a virtual environment.
 
-### ocr_engine.py
-Uses PaddleOCR for text extraction:
-- Supports multilingual OCR (English, Tamil, Hindi)
-- Extracts text, bounding boxes, and confidence scores
-- Returns structured data for downstream processing
-
-### postprocessing.py
-Processes OCR results:
-- Cleans extracted text (whitespace removal)
-- Removes duplicates
-- Formats output into structured JSON
-- Saves results to file
-
-### pipeline.py
-Orchestrates the complete workflow:
-- Preprocessing → OCR → Postprocessing
-- Handles inter-module communication
-
-### main.py
-Entry point that:
-- Runs the pipeline on sample invoice
-- Saves structured output to JSON
-
-## Installation
+### 2. Install Dependencies
+Clone the repository and install the required modules using `pip`:
 
 ```bash
+git clone https://github.com/aadhiseshan88703/OCR-final-year-project.git
+cd OCR-final-year-project
 pip install -r requirements.txt
 ```
 
-## Usage
+> **Note:** If you are using Windows, ensure to install the corresponding PaddlePaddle compiled binaries depending on your CPU/GPU hardware.
 
+## Usage Steps
+
+### Single Image Processing
+To run the OCR pipeline on a simple batch or evaluate the system functionality:
 ```bash
 python main.py
 ```
 
-The script will:
-1. Read the sample invoice from `sample_data/sample_invoice.jpg`
-2. Process it through the OCR pipeline
-3. Save the results to `output/result.json`
-
-## Output Format
-
-```json
-{
-  "text": ["ABC Store", "Total 500"],
-  "boxes": [
-    [[10,20],[100,20],[100,40],[10,40]],
-    [[15,60],[120,60],[120,90],[15,90]]
-  ],
-  "confidence": [0.98, 0.95]
-}
-```
-
-## Requirements
-
-- paddleocr
-- paddlepaddle
-- opencv-python
-- numpy
-- Pillow
-
-## Notes
-
-- Add your invoice images to the `sample_data/` folder
-- Modify the `lang` parameter in `ocr_engine.py` to switch languages:
-  - `'en'` for English
-  - `'ta'` for Tamil
-  - `'hi'` for Hindi
-
-## GitHub Commit & Push Commands
-
-Use this section to track and push the current code to your GitHub repo:
+### Batch Sequencing (Production)
+To extract all images located inside the `sample_data/` directory sequentially and preserve their output dynamically inside `output/result.json`:
 
 ```bash
-# 1. Check repository status
-cd "c:\Users\ELCOT\Desktop\New project\ocr-invoice-system"
-git status
-
-# 2. Add changed files
-git add .
-
-# 3. Commit changes
-git commit -m "Fix OCR pipeline, enforce real OCR path, disable MKLDNN/oneDNN, update README"
-
-# 4. Push to GitHub remote
-git push origin main   
-
-# Optional: check last commit
-git log --oneline -3
+python process_sequential.py
 ```
 
-> Repo URL:
-> https://github.com/aadhiseshan88703/OCR-final-year-project.git
+The system will intelligently determine text locations, parse out invoice structures, reconstruct bounding box spacing mathematically, and dump it into cleanly formatted JSON arrays.

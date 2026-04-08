@@ -7,6 +7,7 @@ import logging
 import shutil
 import tarfile
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 # Suppress paddleocr debugging spam
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
@@ -65,7 +66,7 @@ MODEL_LANGUAGE_CODES = {
     'ml': 'malayalam',
 }
 
-AUTO_LANGUAGES = ['ta', 'hi', 'te', 'kn', 'ml']
+AUTO_LANGUAGES = ['latin', 'ta', 'hi', 'te', 'kn', 'ml']
 
 LANG_MODEL_TARS = {
     'ta': 'ta_PP-OCRv4_rec_infer.tar',
@@ -301,10 +302,10 @@ def _remove_cached_model(lang):
 
 def _init_model(lang):
     try:
-        return PaddleOCR(lang=lang, use_angle_cls=True, use_space_char=True, show_log=False)
+        return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=False)
     except (tarfile.ReadError, EOFError):
         if _remove_cached_model(lang):
-            return PaddleOCR(lang=lang, use_angle_cls=True, use_space_char=True, show_log=False)
+            return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=False)
         raise
 
 
@@ -369,13 +370,19 @@ def run_ocr(image, lang=None):
     """
     if lang is None:
         results = {}
-        for candidate in AUTO_LANGUAGES:
+        
+        def process_candidate(candidate):
             try:
                 ocr = _get_model(candidate)
                 candidate_image = _image_variant_for_lang(image, candidate)
-                results[candidate] = _flatten_result(ocr.ocr(candidate_image, cls=False))
+                return candidate, _flatten_result(ocr.ocr(candidate_image, cls=False))
             except Exception:
-                continue
+                return candidate, None
+
+        for candidate in AUTO_LANGUAGES:
+            candidate, res = process_candidate(candidate)
+            if res:
+                results[candidate] = res
 
         if not results:
             raise RuntimeError("Unable to process image with any supported OCR model.")

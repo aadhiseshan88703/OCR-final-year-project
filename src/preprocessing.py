@@ -6,6 +6,9 @@ def _resize_for_ocr(image, target_width=1200):
     if width < target_width:
         scale = target_width / width
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    elif width > 1600:
+        scale = 1600 / width
+        image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     return image
 
 

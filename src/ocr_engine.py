@@ -302,10 +302,10 @@ def _remove_cached_model(lang):
 
 def _init_model(lang):
     try:
-        return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=False)
+        return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=True)
     except (tarfile.ReadError, EOFError):
         if _remove_cached_model(lang):
-            return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=False)
+            return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=True)
         raise
 
 
@@ -406,10 +406,13 @@ def run_ocr(image, lang=None):
             except Exception:
                 return candidate, None
 
-        for candidate in AUTO_LANGUAGES:
-            candidate, res = process_candidate(candidate)
-            if res:
-                results[candidate] = res
+        from concurrent.futures import as_completed
+        with ThreadPoolExecutor(max_workers=min(len(AUTO_LANGUAGES), os.cpu_count() or 4)) as executor:
+            future_to_lang = {executor.submit(process_candidate, candidate): candidate for candidate in AUTO_LANGUAGES}
+            for future in as_completed(future_to_lang):
+                candidate, res = future.result()
+                if res:
+                    results[candidate] = res
 
         if not results:
             raise RuntimeError("Unable to process image with any supported OCR model.")

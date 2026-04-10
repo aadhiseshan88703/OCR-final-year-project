@@ -65,14 +65,13 @@ async def process_files(files: List[UploadFile] = File(...)):
     Accepts one or more image files, processes them sequentially,
     and returns the structured OCR results.
     """
-    output_data = []
-    
-    for idx, file in enumerate(files, start=1):
+    async def process_single_file(idx: int, file: UploadFile):
         file_path = os.path.join(TEMP_DIR, file.filename)
         
         # Save uploaded file
+        content = await file.read()
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            buffer.write(content)
             
         entry = {
             "image_number": idx,
@@ -84,8 +83,9 @@ async def process_files(files: List[UploadFile] = File(...)):
         }
         
         try:
-            # Process using existing OCR pipeline
-            result = process_document(file_path)
+            import asyncio
+            # Process using existing OCR pipeline concurrently
+            result = await asyncio.to_thread(process_document, file_path)
             
             extracted_text = reconstruct_text_from_layout(result)
             
@@ -104,13 +104,17 @@ async def process_files(files: List[UploadFile] = File(...)):
             entry["status"] = "failed"
             entry["error_message"] = error_msg
             
-        output_data.append(entry)
-        
         # Clean up temporary uploaded file
         try:
             os.remove(file_path)
         except OSError:
             pass
+            
+        return entry
+
+    import asyncio
+    tasks = [process_single_file(idx, file) for idx, file in enumerate(files, start=1)]
+    output_data = await asyncio.gather(*tasks)
 
     # Save all results to output/result.json exactly like process_sequential.py
     save_json(output_data, OUTPUT_FILE)

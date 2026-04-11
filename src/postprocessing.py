@@ -1,15 +1,25 @@
+# -*- coding: utf-8 -*-
 import json
 import os
 import re
 import time
 
-DEVANAGARI_DIGITS = str.maketrans('??????????', '0123456789')
-TAMIL_DIGITS = str.maketrans('??????????', '0123456789')
-TELUGU_DIGITS = str.maketrans('??????????', '0123456789')
-BENGALI_DIGITS = str.maketrans('??????????', '0123456789')
-GUJARATI_DIGITS = str.maketrans('??????????', '0123456789')
-KANNADA_DIGITS = str.maketrans('??????????', '0123456789')
-MALAYALAM_DIGITS = str.maketrans('??????????', '0123456789')
+# ── Indic digit → ASCII digit translation tables ──────────────────────────────
+# Devanagari digits: ०१२३४५६७८९ (U+0966–U+096F)
+DEVANAGARI_DIGITS = str.maketrans('०१२३४५६७८९', '0123456789')
+# Tamil digits: ௦௧௨௩௪௫௬௭௮௯ (U+0BE6–U+0BEF)
+TAMIL_DIGITS = str.maketrans('௦௧௨௩௪௫௬௭௮௯', '0123456789')
+# Telugu digits: ౦౧౨౩౪౫౬౭౮౯ (U+0C66–U+0C6F)
+TELUGU_DIGITS = str.maketrans('౦౧౨౩౪౫౬౭౮౯', '0123456789')
+# Bengali digits: ০১২৩৪৫৬৭৮৯ (U+09E6–U+09EF)
+BENGALI_DIGITS = str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789')
+# Gujarati digits: ૦૧૨૩૪૫૬૭૮૯ (U+0AE6–U+0AEF)
+GUJARATI_DIGITS = str.maketrans('૦૧૨૩૪૫૬૭૮૯', '0123456789')
+# Kannada digits: ೦೧೨೩೪೫೬೭೮೯ (U+0CE6–U+0CEF)
+KANNADA_DIGITS = str.maketrans('೦೧೨೩೪೫೬೭೮೯', '0123456789')
+# Malayalam digits: ൦൧൨൩൪൫൬൭൮൯ (U+0D66–U+0D6F)
+MALAYALAM_DIGITS = str.maketrans('൦൧൨൩൪൫൬൭൮൯', '0123456789')
+
 ALL_DIGITS = {
     **DEVANAGARI_DIGITS,
     **TAMIL_DIGITS,
@@ -31,17 +41,19 @@ SCRIPT_KEEP_RANGES = {
     'ml': [(0x0D00, 0x0D7F)],
 }
 
+# ── Tamil keyword lists ────────────────────────────────────────────────────────
 TAMIL_TOTAL_KEYWORDS = [
-    '?????', '???????', '????', '???', '???????', '??.???.??',
-    'total', 'subtotal', 'amount', 'grand total', '?'
+    'மொத்தம்', 'கொடுத்தது', 'தொகை', 'கட்டு', 'இலவசம்', 'ரூ.செ.வ',
+    'total', 'subtotal', 'amount', 'grand total', 'ரூ'
 ]
-TAMIL_INVOICE_KEYWORDS = ['invoice', 'bill', '????', '????', '??????']
-TAMIL_PHONE_KEYWORDS = ['phone', '???', '????????', '????']
+TAMIL_INVOICE_KEYWORDS = ['invoice', 'bill', 'பில்', 'ரசீது', 'விலைப்பட்டி']
+TAMIL_PHONE_KEYWORDS = ['phone', 'தொலை', 'கைபேசி', 'அழைப்பு']
 
-TELUGU_TOTAL_KEYWORDS = ['??????', '???????', '?????? ???????????????', '?????', '?????? ??', '??']
-TELUGU_INVOICE_KEYWORDS = ['????', '?????????', '???? ??', '???? ?????', '?????']
-TELUGU_PHONE_KEYWORDS = ['????', '??????', '????????????', '??????????']
-TELUGU_DATE_KEYWORDS = ['????', '?????', '????????', '??????', '???????', '??', '????', '????', '??????', '??????????', '????????', '??????', '????????']
+# ── Telugu keyword lists ───────────────────────────────────────────────────────
+TELUGU_TOTAL_KEYWORDS = ['మొత్తం', 'గ్రాండ్', 'మొత్తము సంఖ్య', 'బిల్లు', 'మొత్తం వ', 'రూ']
+TELUGU_INVOICE_KEYWORDS = ['బిల్లు', 'ఇన్వాయిస్', 'బిల్లు నం', 'బిల్లు సంఖ్య', 'రసీదు']
+TELUGU_PHONE_KEYWORDS = ['ఫోన్', 'మొబైల్', 'సంప్రదించండి', 'నంబర్']
+TELUGU_DATE_KEYWORDS = ['తేది', 'తారీఖు', 'తేదీగల', 'వారము', 'నెలలో', 'సం', 'రోజు', 'మాసం', 'సంవత్సరం', 'తేదీనాడు', 'తేదీవర', 'తారీఖు']
 
 LANGUAGE_LABELS = {
     'ta': 'Tamil',
@@ -60,7 +72,7 @@ TARGET_LANGS = {'ta', 'te', 'hi', 'bn', 'gu', 'kn', 'ml'}
 def _normalize_number(text):
     # Convert Indic digits to Latin digits
     n = text.translate(ALL_DIGITS)
-    n = n.replace('?', '').replace('Rs', '').replace('??', '').replace('??', '').strip()
+    n = n.replace('।', '').replace('Rs', '').replace('₹', '').replace('రూ', '').strip()
     n = n.replace(',', '')
     return n
 
@@ -86,7 +98,7 @@ def _extract_invoice_fields(texts, boxes):
         'grand_total': None
     }
 
-    number_pattern = re.compile(r'[0-9?-??-?]+(?:[.,][0-9?-??-?]+)?')
+    number_pattern = re.compile(r'[0-9\u0966-\u096F\u0BE6-\u0BEF]+(?:[.,][0-9\u0966-\u096F\u0BE6-\u0BEF]+)?')
     candidates = []
 
     # Determine y position of each text block for bottom-of-page heuristics
@@ -113,18 +125,21 @@ def _extract_invoice_fields(texts, boxes):
                 fields['date'] = t_stripped
 
         # Invoice number
-        if fields['invoice_no'] is None and any(key in t_lower for key in ['invoice', 'bill', '???? ??????', '??.', '??'] + TAMIL_INVOICE_KEYWORDS + TELUGU_INVOICE_KEYWORDS):
+        invoice_keys = ['invoice', 'bill', 'bill no', 'inv.', 'no'] + TAMIL_INVOICE_KEYWORDS + TELUGU_INVOICE_KEYWORDS
+        if fields['invoice_no'] is None and any(key in t_lower for key in invoice_keys):
             m = number_pattern.search(t_stripped)
             if m:
                 fields['invoice_no'] = _normalize_number(m.group(0))
 
         # Phone number
-        if fields['phone'] is None and any(key in t_lower for key in ['phone', '???'] + TAMIL_PHONE_KEYWORDS + TELUGU_PHONE_KEYWORDS):
+        phone_keys = ['phone', 'mob', 'tel'] + TAMIL_PHONE_KEYWORDS + TELUGU_PHONE_KEYWORDS
+        if fields['phone'] is None and any(key in t_lower for key in phone_keys):
             m = number_pattern.search(t_stripped)
             if m and len(re.sub(r'[^0-9]', '', _normalize_number(m.group(0)))) >= 6:
                 fields['phone'] = _normalize_number(m.group(0))
 
         # Numeric candidates for totals
+        total_keys = ['மொத்தம்', 'கொடுத்தது', 'total', 'grand total', 'amount', 'ரூ', 'subtotal', 'tax'] + TAMIL_TOTAL_KEYWORDS + TELUGU_TOTAL_KEYWORDS
         for m in number_pattern.findall(t_stripped):
             n = _to_float(_normalize_number(m))
             if n is not None:
@@ -132,18 +147,18 @@ def _extract_invoice_fields(texts, boxes):
                     'value': n,
                     'text': t_stripped,
                     'y': y_centers[idx] if idx < len(y_centers) else 0,
-                    'is_total_label': any(key in t_lower for key in ['??? ???', '??? ????', 'total', 'grand total', 'amount', '?', '?? ?? ??', 'tax'] + TAMIL_TOTAL_KEYWORDS + TELUGU_TOTAL_KEYWORDS)
+                    'is_total_label': any(key in t_lower for key in total_keys)
                 })
 
     # Parse labeled totals first
     for c in candidates:
         ln = c['text'].lower()
         val = c['value']
-        if 'tax' in ln or 'gst' in ln or '?? ?? ??' in ln:
+        if 'tax' in ln or 'gst' in ln or 'cgst' in ln or 'sgst' in ln:
             fields['tax'] = val
-        elif 'grand' in ln or '???' in ln or '??????' in ln or '??? ???' in ln or ('total' in ln and 'sub' not in ln):
+        elif 'grand' in ln or 'மொத்தம்' in ln or 'మొత్తం' in ln or ('total' in ln and 'sub' not in ln):
             fields['grand_total'] = val
-        elif 'sub' in ln or '???????' in ln or '?????' in ln or '??????' in ln or 'total' in ln:
+        elif 'sub' in ln or 'தொகை' in ln or 'subtotal' in ln or 'total' in ln:
             if fields['sub_total'] is None:
                 fields['sub_total'] = val
 
@@ -307,10 +322,10 @@ def _group_by_language(texts, boxes, confidences):
 
     summary = []
     for lang, label in LANGUAGE_LABELS.items():
-        items = grouped[label]
-        if items:
-            char_count = sum(len(item['text']) for item in items)
-            avg_conf = sum(item['confidence'] for item in items) / len(items)
+        lang_items = grouped[label]
+        if lang_items:
+            char_count = sum(len(item['text']) for item in lang_items)
+            avg_conf = sum(item['confidence'] for item in lang_items) / len(lang_items)
             summary.append({
                 'language': label,
                 'char_count': char_count,
@@ -328,7 +343,6 @@ def postprocess(texts, boxes, confidences, ocr_metadata=None):
     cleaned_texts = [t for t, _, _ in entries]
     cleaned_boxes = [b for _, b, _ in entries]
     cleaned_confidences = [c for _, _, c in entries]
-    selected_lang = (ocr_metadata or {}).get("selected_language")
     # Disabled script cleanup to preserve exact text as it appears in the image, mixed languages included
 
     invoice_fields = _extract_invoice_fields(cleaned_texts, cleaned_boxes)

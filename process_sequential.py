@@ -5,6 +5,7 @@ import traceback
 
 from src.pipeline import process_document
 from src.postprocessing import save_json
+from src.image_validator import validate_image_clarity
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
 
@@ -42,6 +43,19 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
             "error_message": None
         }
         
+        # ── Step 0: Clarity validation ────────────────────────────────────
+        is_clear, clarity_reason = validate_image_clarity(img_path)
+        if not is_clear:
+            print(f" -> Skipped (image not clear): {clarity_reason}")
+            entry["status"] = "failed"
+            entry["error"] = "Image is not clear enough for extraction"
+            entry["error_message"] = clarity_reason
+            output_data.append(entry)
+            save_json(output_data, output_file)
+            print(f" -> Intermediate results saved to {output_file}.")
+            continue
+        # ─────────────────────────────────────────────────────────────────
+
         try:
             # Process sequentially (no threading/multiprocessing here)
             result = process_document(img_path)

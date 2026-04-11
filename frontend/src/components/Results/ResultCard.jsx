@@ -44,9 +44,15 @@ const ResultCard = ({ result }) => {
         <div className="p-0">
           {!isSuccess ? (
             <div className="p-6 bg-red-50 text-red-700">
-              <p className="font-medium flex items-start gap-2">
-                <AlertTriangle className="flex-shrink-0 mt-0.5" size={18} />
-                <span>Error details: {result.error_message || 'Unknown error occurred during processing.'}</span>
+              {result.error && (
+                <p className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="flex-shrink-0" size={18} />
+                  {result.error}
+                </p>
+              )}
+              <p className="text-sm flex items-start gap-2 text-red-600">
+                <AlertTriangle className="flex-shrink-0 mt-0.5" size={16} />
+                <span>{result.error_message || 'Unknown error occurred during processing.'}</span>
               </p>
             </div>
           ) : (

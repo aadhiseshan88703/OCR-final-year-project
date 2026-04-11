@@ -2,7 +2,9 @@ import os
 # Prevent OpenMP crash on Windows
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
+import numpy as np
 from paddleocr import PaddleOCR
+from paddleocr.tools.infer.utility import get_rotate_crop_image
 import logging
 import shutil
 import tarfile
@@ -21,7 +23,7 @@ SUPPORTED_LANGUAGES = {
     'te': 'Telugu',
     'kn': 'Kannada',
     'ka': 'Kannada',
-    'ml': 'Malayalam',
+    # 'ml': 'Malayalam' -- model unavailable in PaddleOCR 2.8.1
 }
 
 SCRIPT_RANGES = {
@@ -51,8 +53,7 @@ LANGUAGE_CODES = {
     'kannada': 'kn',
     'kn': 'kn',
     'ka': 'ka',
-    'malayalam': 'ml',
-    'ml': 'ml',
+    # 'malayalam'/'ml' excluded -- no model in PaddleOCR 2.8.1
 }
 
 MODEL_LANGUAGE_CODES = {
@@ -63,10 +64,11 @@ MODEL_LANGUAGE_CODES = {
     'te': 'te',
     'kn': 'ka',
     'ka': 'ka',
-    'ml': 'malayalam',
+    # 'ml': 'malayalam' — not available in PaddleOCR 2.8.1
 }
 
-AUTO_LANGUAGES = ['latin', 'ta', 'hi', 'te', 'kn', 'ml']
+# 'ml' (Malayalam) excluded — no model in PaddleOCR 2.8.1
+AUTO_LANGUAGES = ['latin', 'ta', 'hi', 'te', 'kn']
 
 LANG_MODEL_TARS = {
     'ta': 'ta_PP-OCRv4_rec_infer.tar',
@@ -310,8 +312,18 @@ def _init_model(lang):
 
 
 def _load_models():
-    _get_model('ta')
-    _get_model('latin')
+    """
+    Pre-load ALL supported OCR language models into the model cache.
+    Called once at server startup so the first user request has no cold-start delay.
+    Failures for individual languages are logged as warnings (non-fatal).
+    """
+    import logging
+    for lang in AUTO_LANGUAGES:
+        try:
+            _get_model(lang)
+            logging.info(f"Model pre-loaded: {lang}")
+        except Exception as exc:
+            logging.warning(f"Could not pre-load model for '{lang}': {exc}")
 
 def _flatten_result(result):
     texts = []
@@ -370,8 +382,6 @@ def run_ocr(image, lang=None):
     """
     if lang is None:
         results = {}
-        import numpy as np
-        from paddleocr.tools.infer.utility import get_rotate_crop_image
 
         main_ocr = _get_model('latin')
         base_image = _image_variant_for_lang(image, 'default')

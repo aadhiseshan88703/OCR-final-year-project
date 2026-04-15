@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Direct OCR pipeline test — bypasses HTTP to capture exact crash traceback.
-Run: python debug_pipeline.py
-"""
 import sys, time, traceback
 sys.stdout.reconfigure(encoding='utf-8')
 

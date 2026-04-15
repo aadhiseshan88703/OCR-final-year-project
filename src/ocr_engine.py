@@ -1,5 +1,4 @@
 import os
-# Prevent OpenMP crash on Windows
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import numpy as np
@@ -10,7 +9,9 @@ import shutil
 import tarfile
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-# Suppress paddleocr debugging spam
+
+from src.preprocessing import _telugu_enhanced_variant
+
 logging.getLogger("ppocr").setLevel(logging.ERROR)
 
 ocr_models = {}
@@ -18,23 +19,28 @@ ocr_models = {}
 SUPPORTED_LANGUAGES = {
     'latin': 'Latin/English',
     'ta': 'Tamil',
-    'hi': 'Hindi/Marathi/Devanagari',
-    'devanagari': 'Hindi/Marathi/Devanagari',
+    'hi': 'Hindi/Devanagari',
+    'devanagari': 'Hindi/Devanagari',
+    'mr': 'Marathi',          # uses Devanagari model
     'te': 'Telugu',
     'kn': 'Kannada',
     'ka': 'Kannada',
-    # 'ml': 'Malayalam' -- model unavailable in PaddleOCR 2.8.1
+    'guj': 'Gujarati',
+    'ben': 'Bengali',
 }
 
 SCRIPT_RANGES = {
     'latin': [(0x0041, 0x005A), (0x0061, 0x007A)],
-    'ta': [(0x0B80, 0x0BFF)],
-    'hi': [(0x0900, 0x097F)],
+    'ta':    [(0x0B80, 0x0BFF)],
+    'hi':    [(0x0900, 0x097F)],
     'devanagari': [(0x0900, 0x097F)],
-    'kn': [(0x0C80, 0x0CFF)],
-    'ka': [(0x0C80, 0x0CFF)],
-    'te': [(0x0C00, 0x0C7F)],
-    'ml': [(0x0D00, 0x0D7F)],
+    'mr':    [(0x0900, 0x097F)],   # Marathi
+    'kn':    [(0x0C80, 0x0CFF)],
+    'ka':    [(0x0C80, 0x0CFF)],
+    'te':    [(0x0C00, 0x0C7F)],
+    'ml':    [(0x0D00, 0x0D7F)],
+    'ben':   [(0x0980, 0x09FF)],   # Bengali
+    'guj':   [(0x0A80, 0x0AFF)],   # Gujarati
 }
 
 LANGUAGE_CODES = {
@@ -46,14 +52,19 @@ LANGUAGE_CODES = {
     'hindi': 'hi',
     'hi': 'hi',
     'devanagari': 'devanagari',
-    'marathi': 'hi',
-    'mr': 'hi',
+    'marathi': 'mr',
+    'mr': 'mr',
     'telugu': 'te',
     'te': 'te',
     'kannada': 'kn',
     'kn': 'kn',
     'ka': 'ka',
-    # 'malayalam'/'ml' excluded -- no model in PaddleOCR 2.8.1
+    'gujarati': 'guj',
+    'guj': 'guj',
+    'gu': 'guj',
+    'bengali': 'ben',
+    'ben': 'ben',
+    'bn': 'ben',
 }
 
 MODEL_LANGUAGE_CODES = {
@@ -61,19 +72,87 @@ MODEL_LANGUAGE_CODES = {
     'ta': 'ta',
     'hi': 'devanagari',
     'devanagari': 'devanagari',
+    'mr': 'devanagari',  
     'te': 'te',
     'kn': 'ka',
     'ka': 'ka',
-    # 'ml': 'malayalam' — not available in PaddleOCR 2.8.1
+    'guj': 'gu',
+    'ben': 'bn',
 }
 
-# 'ml' (Malayalam) excluded — no model in PaddleOCR 2.8.1
-AUTO_LANGUAGES = ['latin', 'ta', 'hi', 'te', 'kn']
+
+AUTO_LANGUAGES = ['latin', 'ta', 'hi', 'te', 'kn', 'guj', 'ben', 'mr']
 
 LANG_MODEL_TARS = {
     'ta': 'ta_PP-OCRv4_rec_infer.tar',
     'latin': 'latin_PP-OCRv4_rec_infer.tar',
 }
+
+
+def _is_gpu_available():
+    try:
+        import paddle
+        return paddle.is_compiled_with_cuda()
+    except Exception:
+        return False
+
+USE_GPU = _is_gpu_available()
+
+
+def _variant_key(lang):
+    return 'te' if lang == 'te' else 'default'
+
+
+def _prepare_image_crops(image_variant, boxes):
+    if not boxes:
+        return []
+    return [get_rotate_crop_image(image_variant, np.array(box, dtype=np.float32)) for box in boxes]
+
+
+def _run_candidate_recognition(image, boxes, candidates):
+    crops_by_variant = {}
+    results = {}
+
+    for candidate in candidates:
+        variant_name = _variant_key(candidate)
+        if variant_name not in crops_by_variant:
+            variant_image = _image_variant_for_lang(image, candidate)
+            crops_by_variant[variant_name] = _prepare_image_crops(variant_image, boxes)
+
+    def process_candidate(candidate):
+        try:
+            crop_key = _variant_key(candidate)
+            img_crops = crops_by_variant[crop_key]
+            if not img_crops:
+                return candidate, None
+
+            ocr = _get_model(candidate)
+            rec_res = ocr.ocr(img_crops, det=False, cls=False)
+
+            texts = []
+            confidences = []
+            if rec_res and rec_res[0]:
+                for item in rec_res[0]:
+                    texts.append(item[0] if isinstance(item, (list, tuple)) else "")
+                    confidences.append(float(item[1]) if isinstance(item, (list, tuple)) else 0.0)
+            else:
+                texts = ["" for _ in img_crops]
+                confidences = [0.0 for _ in img_crops]
+
+            return candidate, (texts, list(boxes), confidences)
+        except Exception:
+            return candidate, None
+
+    from concurrent.futures import as_completed
+    max_workers = min(len(candidates), max(1, (os.cpu_count() or 4) // 2))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_lang = {executor.submit(process_candidate, candidate): candidate for candidate in candidates}
+        for future in as_completed(future_to_lang):
+            candidate, res = future.result()
+            if res:
+                results[candidate] = res
+
+    return results
 
 
 def _normalize_lang(lang):
@@ -108,9 +187,28 @@ def _count_script_chars(texts, ranges):
 
 
 def _language_score(lang, texts, confidences):
-    script_score = _count_script_chars(texts, SCRIPT_RANGES.get(lang, []))
+    ranges = SCRIPT_RANGES.get(lang, [])
+    script_chars = _count_script_chars(texts, ranges)
+    total_chars = sum(len(text) for text in texts)
+    letter_chars = sum(sum(1 for ch in text if ch.isalpha()) for text in texts)
+    other_script_chars = 0
+    for other_lang, other_ranges in SCRIPT_RANGES.items():
+        if other_lang == lang:
+            continue
+        other_script_chars += _count_script_chars(texts, other_ranges)
+
+    script_ratio = script_chars / max(letter_chars, 1)
     confidence_score = sum(confidences) if confidences else 0.0
-    return script_score + 0.18 * len(texts) + 0.03 * confidence_score
+    noise_chars = max(0, total_chars - script_chars)
+
+    return (
+        script_chars * 4.5
+        + script_ratio * 20.0
+        + 0.035 * confidence_score
+        - other_script_chars * 3.0
+        - noise_chars * 0.15
+        + 0.08 * len(texts)
+    )
 
 
 def _select_best_language(results):
@@ -304,10 +402,24 @@ def _remove_cached_model(lang):
 
 def _init_model(lang):
     try:
-        return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=True)
+        return PaddleOCR(
+            lang=lang,
+            use_angle_cls=False,
+            use_space_char=True,
+            show_log=False,
+            enable_mkldnn=True,
+            use_gpu=USE_GPU,
+        )
     except (tarfile.ReadError, EOFError):
         if _remove_cached_model(lang):
-            return PaddleOCR(lang=lang, use_angle_cls=False, use_space_char=True, show_log=False, enable_mkldnn=True)
+            return PaddleOCR(
+                lang=lang,
+                use_angle_cls=False,
+                use_space_char=True,
+                show_log=False,
+                enable_mkldnn=True,
+                use_gpu=USE_GPU,
+            )
         raise
 
 
@@ -345,6 +457,9 @@ def _image_variant_for_lang(image, lang):
     if isinstance(image, dict):
         if lang in image:
             return image[lang]
+        if lang == 'te':
+            image['te'] = _telugu_enhanced_variant(image['default'])
+            return image['te']
         return image.get('default')
     return image
 
@@ -378,11 +493,10 @@ def run_ocr(image, lang=None):
     Extracts text, bounding boxes, and confidences from the preprocessed image.
 
     If lang is provided, this function uses the requested PaddleOCR language model.
-    If lang is None, it tries all supported OCR languages and chooses the best result.
+    If lang is None, it tries all supported OCR languages and returns only the
+    single detected language output for the image.
     """
     if lang is None:
-        results = {}
-
         main_ocr = _get_model('latin')
         base_image = _image_variant_for_lang(image, 'default')
         det_res = main_ocr.ocr(base_image, cls=False, rec=False)
@@ -391,13 +505,18 @@ def run_ocr(image, lang=None):
         if not boxes:
             return [], [], [], {'mode': 'merged_auto', 'language_counts': {}, 'languages_tried': list(AUTO_LANGUAGES)}
 
+        attempted_languages = []
+        failed_languages = []
+        results = {}
+
         def process_candidate(candidate):
             try:
-                candidate_image = _image_variant_for_lang(image, candidate)
-                img_crops = []
-                for box in boxes:
-                    img_crop = get_rotate_crop_image(candidate_image, np.array(box, dtype=np.float32))
-                    img_crops.append(img_crop)
+                attempted_languages.append(candidate)
+                crop_key = _variant_key(candidate)
+                img_crops = crops_by_variant[crop_key]
+                if not img_crops:
+                    failed_languages.append(candidate)
+                    return candidate, None
 
                 ocr = _get_model(candidate)
                 rec_res = ocr.ocr(img_crops, det=False, cls=False)
@@ -409,15 +528,25 @@ def run_ocr(image, lang=None):
                         texts.append(item[0] if isinstance(item, (list, tuple)) else "")
                         confidences.append(float(item[1]) if isinstance(item, (list, tuple)) else 0.0)
                 else:
-                    texts = ["" for _ in boxes]
-                    confidences = [0.0 for _ in boxes]
-                    
+                    texts = ["" for _ in img_crops]
+                    confidences = [0.0 for _ in img_crops]
+
                 return candidate, (texts, list(boxes), confidences)
             except Exception:
+                failed_languages.append(candidate)
                 return candidate, None
 
+        # Reuse the crop-preparation logic from _run_candidate_recognition.
+        crops_by_variant = {}
+        for candidate in AUTO_LANGUAGES:
+            variant_name = _variant_key(candidate)
+            if variant_name not in crops_by_variant:
+                variant_image = _image_variant_for_lang(image, candidate)
+                crops_by_variant[variant_name] = _prepare_image_crops(variant_image, boxes)
+
         from concurrent.futures import as_completed
-        with ThreadPoolExecutor(max_workers=min(len(AUTO_LANGUAGES), os.cpu_count() or 4)) as executor:
+        max_workers = min(len(AUTO_LANGUAGES), max(1, (os.cpu_count() or 4) // 2))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_lang = {executor.submit(process_candidate, candidate): candidate for candidate in AUTO_LANGUAGES}
             for future in as_completed(future_to_lang):
                 candidate, res = future.result()
@@ -427,26 +556,13 @@ def run_ocr(image, lang=None):
         if not results:
             raise RuntimeError("Unable to process image with any supported OCR model.")
 
-        base_image = _image_variant_for_lang(image, 'default')
-        header_lang = _select_header_language(results, base_image.shape[0] if hasattr(base_image, 'shape') else 0)
-        if header_lang:
-            texts, boxes, confidences = results[header_lang]
-            return texts, boxes, confidences, {
-                'mode': 'header_guided_single_language',
-                'selected_language': header_lang,
-                'languages_tried': list(results.keys()),
-            }
-
-        texts, boxes, confidences, metadata = _merge_auto_results(results)
-        if texts:
-            return texts, boxes, confidences, metadata
-
         best_lang = _select_best_language(results)
         texts, boxes, confidences = results[best_lang]
         return texts, boxes, confidences, {
             'mode': 'single_best_language',
             'selected_language': best_lang,
-            'languages_tried': list(results.keys()),
+            'languages_tried': list(attempted_languages),
+            'languages_failed': list(failed_languages),
         }
 
     ocr = _get_model(lang)

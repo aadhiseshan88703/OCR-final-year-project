@@ -57,8 +57,23 @@ pip install -r requirements.txt
 
 ## Usage Steps
 
-### Single Image Processing
-To run the OCR pipeline on a simple batch or evaluate the system functionality:
+### Run the Backend API for the React Frontend
+Start the FastAPI backend that the React app connects to:
+```bash
+python api.py
+```
+
+Then start the frontend in a separate terminal:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the app at `http://localhost:5173` and upload images to the backend.
+
+### Offline Batch Processing
+To run the OCR pipeline without the web UI:
 ```bash
 python main.py
 ```

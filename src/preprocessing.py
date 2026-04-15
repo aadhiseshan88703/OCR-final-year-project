@@ -22,8 +22,11 @@ def _telugu_enhanced_variant(image):
 
 def preprocess_image(image_path):
     """
-    This module performs image preprocessing including resizing,
-    grayscale conversion, noise removal, and thresholding to improve OCR accuracy.
+    This module performs image preprocessing including resizing and noise reduction.
+
+    The OCR engine now generates language-specific variants lazily to avoid
+    extra computation when the target language is known or when the default
+    image variant is sufficient.
     """
     image = cv2.imread(image_path)
     if image is None:
@@ -32,5 +35,4 @@ def preprocess_image(image_path):
     image = _resize_for_ocr(image)
     return {
         "default": image,
-        "te": _telugu_enhanced_variant(image),
     }

@@ -18,7 +18,6 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
         print(f"Error: Input directory '{input_dir}' not found.")
         sys.exit(1)
         
-    # Get images and sort lexicographically (consistent tie-breaker for ordering)
     images = []
     for f in os.listdir(input_dir):
         if os.path.isfile(os.path.join(input_dir, f)) and os.path.splitext(f)[1].lower() in IMAGE_EXTENSIONS:
@@ -33,7 +32,6 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
         img_path = os.path.join(input_dir, img_name)
         print(f"\n[{idx}/{len(images)}] Processing: {img_name}")
         
-        # Initialize entry exactly as specified
         entry = {
             "image_number": idx,
             "image_name": img_name,
@@ -43,7 +41,6 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
             "error_message": None
         }
         
-        # ── Step 0: Clarity validation ────────────────────────────────────
         is_clear, clarity_reason = validate_image_clarity(img_path)
         if not is_clear:
             print(f" -> Skipped (image not clear): {clarity_reason}")
@@ -54,13 +51,10 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
             save_json(output_data, output_file)
             print(f" -> Intermediate results saved to {output_file}.")
             continue
-        # ─────────────────────────────────────────────────────────────────
 
         try:
-            # Process sequentially (no threading/multiprocessing here)
             result = process_document(img_path)
             
-            # Construct extracted text matching the exact visual layout
             layout_data = result.get("layout", [])
             if layout_data:
                 # Group by line_id
@@ -74,7 +68,6 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
                         lines_dict[lid] = []
                     lines_dict[lid].append({"text": item.get("text", ""), "xmin": xmin, "xmax": xmax})
 
-                # Reconstruct spacing based on character width heuristic (~10 pixels per char)
                 char_width = 12
                 reconstructed_lines = []
                 for lid in sorted(lines_dict.keys()):
@@ -95,7 +88,6 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
                     reconstructed_lines.append(line_str)
                 extracted_text = "\n".join(reconstructed_lines)
             else:
-                # Fallback to plain joined text
                 extracted_text = "\n".join(result.get("text", []))
                 
             structured_data = result.get("invoice_fields", {})
@@ -111,19 +103,14 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
             entry["status"] = "failed"
             entry["error_message"] = error_msg
             
-        # Append to our maintaining list
         output_data.append(entry)
         
-        # Store intermediate results before moving to the next image
-        # This overwrites the JSON file with the array built so far, 
-        # so if the script crashes, the processed results up to that point are saved.
         save_json(output_data, output_file)
         print(f" -> Intermediate results saved to {output_file}.")
         
     print(f"\nSequential processing complete. Total 100% finished. Results in {output_file}")
 
 if __name__ == "__main__":
-    # Optional enhancements: configurable input/output paths from args
     input_directory = sys.argv[1] if len(sys.argv) > 1 else "sample_data"
     out_file = sys.argv[2] if len(sys.argv) > 2 else os.path.join("output", "result.json")
     process_images_sequentially(input_dir=input_directory, output_file=out_file)

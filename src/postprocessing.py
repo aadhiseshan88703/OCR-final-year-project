@@ -386,6 +386,10 @@ def postprocess(texts, boxes, confidences, ocr_metadata=None):
 
     invoice_fields = _extract_invoice_fields(cleaned_texts, cleaned_boxes)
     grouped, summary, layout, line_layout = _group_by_language(cleaned_texts, cleaned_boxes, cleaned_confidences)
+
+    primary_language_label = LANGUAGE_LABELS.get(final_lang) if final_lang else None
+    primary_texts = [item['text'] for item in grouped.get(primary_language_label, [])] if primary_language_label else []
+
     formatted_data = {
         "text": cleaned_texts,
         "boxes": cleaned_boxes,
@@ -393,6 +397,9 @@ def postprocess(texts, boxes, confidences, ocr_metadata=None):
         "ocr_metadata": ocr_metadata or {},
         "selected_language": LANGUAGE_LABELS.get(selected_lang) if selected_lang else None,
         "detected_language": LANGUAGE_LABELS.get(final_lang) if final_lang else None,
+        "primary_language": primary_language_label,
+        "primary_text": primary_texts,
+        "full_text": " ".join(cleaned_texts),
         "language_summary": {
             "detected": summary,
             "unsupported_models": sorted(TARGET_LANGS - SUPPORTED_OCR_LANGS),

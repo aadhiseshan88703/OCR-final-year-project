@@ -43,6 +43,8 @@ if __name__ == "__main__":
         try:
             result = process_document(image_path, lang=lang)
             print(f"Pipeline result: {len(result['text'])} texts found")
+            print(f"Selected language: {result.get('selected_language')} | Detected language: {result.get('detected_language')}")
+            print(f"Primary text lines: {len(result.get('primary_text', []))}")
             
             base_name = os.path.splitext(os.path.basename(image_path))[0]
             all_results[base_name] = result

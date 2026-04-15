@@ -556,6 +556,10 @@ def run_ocr(image, lang=None):
         if not results:
             raise RuntimeError("Unable to process image with any supported OCR model.")
 
+        language_scores = {
+            lang: round(_language_score(lang, texts, confidences), 4)
+            for lang, (texts, _, confidences) in results.items()
+        }
         best_lang = _select_best_language(results)
         texts, boxes, confidences = results[best_lang]
         return texts, boxes, confidences, {
@@ -563,6 +567,7 @@ def run_ocr(image, lang=None):
             'selected_language': best_lang,
             'languages_tried': list(attempted_languages),
             'languages_failed': list(failed_languages),
+            'language_scores': language_scores,
         }
 
     ocr = _get_model(lang)

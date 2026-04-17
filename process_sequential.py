@@ -98,9 +98,10 @@ def process_images_sequentially(input_dir="sample_data", output_file=os.path.joi
             print(f" -> Success! Found {len(result.get('text', []))} lines of text.")
             
         except Exception as e:
-            error_msg = f"{type(e).__name__}: {str(e)}"
-            print(f" -> Failed to process {img_name}: {error_msg}")
+            error_msg = str(e)
+            print(f" -> Failed to process {img_name}: {type(e).__name__}: {error_msg}")
             entry["status"] = "failed"
+            entry["error"] = type(e).__name__
             entry["error_message"] = error_msg
             
         output_data.append(entry)

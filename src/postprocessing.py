@@ -99,7 +99,11 @@ def _extract_invoice_fields(texts, boxes):
         'grand_total': None
     }
 
-    number_pattern = re.compile(r'[0-9\u0966-\u096F\u0BE6-\u0BEF]+(?:[.,][0-9\u0966-\u096F\u0BE6-\u0BEF]+)?')
+    # Covers: ASCII, Devanagari, Tamil, Telugu, Bengali, Gujarati, Kannada native digits
+    number_pattern = re.compile(
+        r'[0-9\u0966-\u096F\u0BE6-\u0BEF\u0C66-\u0C6F\u09E6-\u09EF\u0AE6-\u0AEF\u0CE6-\u0CEF]+'
+        r'(?:[.,][0-9\u0966-\u096F\u0BE6-\u0BEF\u0C66-\u0C6F\u09E6-\u09EF\u0AE6-\u0AEF\u0CE6-\u0CEF]+)?'
+    )
     candidates = []
 
     y_centers = []

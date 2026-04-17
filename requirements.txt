@@ -1,8 +1,13 @@
+# OCR core
 paddleocr==2.8.1
 paddlepaddle==2.6.2
-opencv-python
-numpy
-Pillow
-fastapi
-uvicorn
-python-multipart
+
+# Image processing
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+Pillow>=10.0.0
+
+# API server
+fastapi>=0.110.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9

@@ -157,9 +157,15 @@ python -m pip install --upgrade paddleocr
 
 1. ✅ Install Python properly
 2. ✅ Run `pip install -r requirements.txt`
-3. ✅ Run `python main.py`
-4. ✅ Check `output/result.json` for results
-5. ✅ Test with your own invoice images
+3. ✅ Start the backend API server: `python api.py`
+4. ✅ In `frontend/`, install dependencies and start the React app:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+5. ✅ Open `http://localhost:5173` in your browser and use the web UI
+6. ✅ For CLI-only processing, run `python main.py`
 
 ---
 
